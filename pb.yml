@@ -1,0 +1,78 @@
+---
+- hosts: 192.168.1.41 
+  remote_user: bare
+  become: yes
+
+  vars:
+    - workspace: /home/bare/workspace
+    - user_name: bare
+
+  tasks:
+#    - name: Install NTP
+#      apt: pkg=ntp state=installed update_cache=true
+#    - name: Uninstall NTP
+#      apt: pkg=ntp state=absent update_cache=true
+#    - name: Install Apache
+#      apt: pkg=apache2 state=installed update_cache=true
+#      notify:
+#        - start apache
+#    - name: Uninstall Apache
+#      apt: pkg=apache2 state=absent update_cache=true
+#      notify:
+#        - stop apache
+#    - name: Create workspace directory
+#      file: dest={{ workspace }} mode=777 state=directory owner=bare group=bare
+
+    - name: Install common packages
+      apt: pkg={{ item }} state=installed
+      with_items:
+        - git
+        - vim
+        - python-setuptools
+        - python-dev
+
+    - name: Create home directory structure
+      file: path=/home/{{user_name }}/{{ item }}
+        state=directory
+        owner={{ user_name }}
+        group={{ user_name }}
+        mode=0775
+      with_items:
+        - workspace
+        - workspace/tmp
+        - tmp
+
+    - name: Copy files
+      copy: src=/home/msouza64/.ssh/{{ item }} dest=/home/{{ user_name }}/workspace/{{ item }}
+        owner={{ user_name }}
+        group={{ user_name }}
+        mode=0777
+      with_items:
+        - msouza.pem
+        - msouza_id_rsa.pub
+
+#    - name: Add users
+      #become_user: bare 
+#      shell: adduser meme 
+
+# This downloads to the remote
+    - name: Download python netifaces
+      get_url: url=https://pypi.python.org/packages/a7/4c/8e0771a59fd6e55aac993a7cc1b6a0db993f299514c464ae6a1ecf83b31d/netifaces-0.10.5.tar.gz#md5=5b4d1f1310ed279e6df27ef3a9b71519 dest=/tmp/netifaces.tar.gz 
+
+    - name: Extract netifaces files 
+      unarchive:
+        src: "/tmp/netifaces.tar.gz"
+        dest: "/root/"
+
+# Need setuptools installed first
+    - name: Install netifaces
+      command: python setup.py install chdir=/root/netifaces-0.10.5/
+
+
+  handlers:
+    - name: start apache
+      service: name=apache2 state=started
+    - name: stop apache
+      service: name=apache2 state=stopped
+    - name: gunzip
+      shell: gunzip -c /tmp/netifaces.tar.gz | tar xvf -
